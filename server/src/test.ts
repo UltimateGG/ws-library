@@ -15,15 +15,15 @@ enum Event {
   TEST = 'test',
 }
 
-wss.on('connection', (ws, req) => {
+wss.on('connection', (client, req) => {
   logInfo('New connection from ' + req.socket.remoteAddress);
 });
 
-wss.subscribe<number>(Event.TEST, (message, ws) => {
+wss.subscribe<number>(Event.TEST, (message, client) => {
   logInfo('TEST EVENT:', message);
 });
 
-wss.on('disconnect', (ws) => {
+wss.on('disconnect', (client) => {
   logInfo('Client disconnected');
 });
 

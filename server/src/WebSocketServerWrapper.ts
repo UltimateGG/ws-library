@@ -1,31 +1,27 @@
 import { logError } from '@ultimategg/logging';
-import { ServerOptions, WebSocketServer } from 'ws';
-import { WebSocketClient } from '.';
+import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
+import WebSocketClient from './WebSocketClient';
 
 
-export class WebSocketServerWrapper extends WebSocketServer {
+export class WebSocketServerWrapper extends WebSocketServer<typeof WebSocketClient> {
   private eventSubscibers: Map<string, ((data: any, ws: WebSocketClient) => void)[]> = new Map();
 
 
-  constructor(options?: ServerOptions, callback?: () => void) {
+  constructor(options?: ServerOptions<typeof WebSocketClient>, callback?: () => void) {
     super(options, callback);
 
-    this.on('message', (event: string, data: any, ws: WebSocketClient) => {
-      const wsExt = ws as WebSocketClient;
-
+    this.on('message', (event: string, data: any, client: WebSocketClient) => {
       const listeners = this.eventSubscibers.get(event);
       if (!listeners) return;
 
       listeners.forEach(listener => {
         try {
-          listener(data, wsExt);
+          listener(data, client);
         } catch (e) {
           logError(`[WebSocketLibrary] Caught error while calling event subscriber for "${event}"`, e);
         }
       });
     });
-
-    this.subscribe('pong', (data, ws) => ws.isAlive = true);
   }
 
   public broadcast(event: string, data: any, ...exclude: WebSocketClient[]) {
@@ -33,11 +29,11 @@ export class WebSocketServerWrapper extends WebSocketServer {
       const clientExt = client as WebSocketClient;
 
       if (clientExt.readyState === WebSocket.OPEN && !exclude.includes(clientExt))
-        client.send(JSON.stringify({ event, data }));
+        client.send(event, data);
     });
   }
 
-  public subscribe<E = any>(event: string, listener: (data: E, ws: WebSocketClient) => void): this {
+  public subscribe<E = any>(event: string, listener: (data: E, client: WebSocketClient) => void): this {
     this.eventSubscibers.set(event, [...(this.eventSubscibers.get(event) || []), listener]);
     return this;
   }

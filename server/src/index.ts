@@ -1,19 +1,7 @@
 import { logError, logWarn } from '@ultimategg/logging';
 import http from 'http';
 import https from 'https';
-import { WebSocket } from 'ws';
 import { WebSocketServerWrapper } from './WebSocketServerWrapper';
-
-
-type HttpServer = http.Server | https.Server;
-
-export declare class WebSocketClient extends WebSocket {
-  ip: string;
-  user: any;
-
-  /** Internal use for connection drop check */
-  isAlive: boolean;
-}
 
 
 const wss: WebSocketServerWrapper = new WebSocketServerWrapper({ noServer: true });
@@ -24,7 +12,7 @@ const wss: WebSocketServerWrapper = new WebSocketServerWrapper({ noServer: true 
  * @param pingInterval Terminate connection if no pong received in this interval (ms)
  */
 const init = (
-  server: HttpServer,
+  server: http.Server | https.Server,
   authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<any>,
   path?: string,
   pingInterval: number = 30_000
@@ -49,46 +37,40 @@ const init = (
     }
 
     // Successful authentication, upgrade to websocket
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      const wsWrapper = ws as WebSocketClient;
+    wss.handleUpgrade(req, socket, head, (client) => {
+      client.ip = ipAddr;
+      client.user = user;
 
-      wsWrapper.ip = ipAddr;
-      wsWrapper.user = user;
-
-      wss.emit('connection', ws, req);
+      wss.emit('connection', client, req);
     });
   });
 
-  wss.on('connection', ws => {
-    const wsExt = ws as WebSocketClient;
-    wsExt.isAlive = true;
-
-    wsExt.on('message', async msg => {
+  wss.on('connection', client => {
+    client.on('message', async msg => {
       try {
         const json = JSON.parse(msg.toString());
         if (!json.event || typeof json.event !== 'string')
           throw new Error('Invalid websocket message');
 
         // Emit message event with parsed json
-        wss.emit('message', json.event, json.data, wsExt);
+        wss.emit('message', json.event, json.data, client);
       } catch (e) {
         logError('[WebSocketLibrary] Error parsing websocket message', e);
       }
     });
 
-    wsExt.on('close', () => {
-      wss.emit('disconnect', wsExt);
-    });
+    client.on('close', () => wss.emit('disconnect', client));
   });
+
+  wss.subscribe('pong', (data, client) => client.isAlive = true);
 
   // Ping clients to check if they are still connected
   setInterval(() => {
-    wss.clients.forEach(ws => {
-      const clientExt = ws as WebSocketClient;
-      if (clientExt.isAlive === false) return clientExt.terminate();
+    wss.clients.forEach(client => {
+      if (client.isAlive === false) return client.terminate();
   
-      clientExt.isAlive = false;
-      clientExt.send(JSON.stringify({ event: 'ping' }));
+      client.isAlive = false;
+      client.send('ping');
     });
   }, pingInterval);
 

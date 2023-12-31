@@ -8,6 +8,10 @@
     "dist/index.d.ts",
     "dist/index.js"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UltimateGG/ws-library.git"
+  },
   "scripts": {
     "build": "npx tsc && npx terser --compress --output ./dist/index.js -- ./dist/index.js",
     "dev": "nodemon src/test.ts"

@@ -1,14 +1,13 @@
 import { logError, logWarn } from '@ultimategg/logging';
 import http from 'http';
 import https from 'https';
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket } from 'ws';
+import { WebSocketServerWrapper } from './WebSocketServerWrapper';
 
 
 type HttpServer = http.Server | https.Server;
 
-export type AuthFunction = (req: http.IncomingMessage, ipAddress: string) => Promise<any>;
-
-export declare class WebSocketWrapper extends WebSocket {
+export declare class WebSocketClient extends WebSocket {
   ip: string;
   user: any;
 
@@ -16,43 +15,20 @@ export declare class WebSocketWrapper extends WebSocket {
   isAlive: boolean;
 }
 
-/**
- * E = Your event enum
- * V = Your event data type or any
- */
-export interface WebSocketMessage<E = string, V = any> {
-  event: E;
-  data: V;
-}
 
-export declare class WebSocketServerWrapper extends WebSocketServer {
-  on(event: 'connection', listener: (ws: WebSocketWrapper, req: http.IncomingMessage, user: any) => void): this;
-  on(event: 'message', listener: (ws: WebSocketWrapper, message: WebSocketMessage) => void): this;
-  on(event: string, listener: (...args: any[]) => void): this;
-
-  /** Broadcast the message to all clients (Except ones listed in the arguments/array) */
-  broadcast(message: WebSocketMessage, ...ws: WebSocketWrapper[]): void;
-}
-
-export class WebSocketServerWrapperImpl extends WebSocketServer {
-  public broadcast(message: WebSocketMessage, ...exclude: WebSocketWrapper[]) {
-    this.clients.forEach(client => {
-      const clientExt = client as WebSocketWrapper;
-
-      if (clientExt.readyState === WebSocket.OPEN && !exclude.includes(clientExt))
-        client.send(JSON.stringify(message));
-    });
-  }
-}
-
-const wss: WebSocketServerWrapper = new WebSocketServerWrapperImpl({ noServer: true });
+const wss: WebSocketServerWrapper = new WebSocketServerWrapper({ noServer: true });
 
 /**
  * @param authFunc Should return the user, or null if not authenticated
  * @param path Path to listen for websocket connections on Ex '/ws'
  * @param pingInterval Terminate connection if no pong received in this interval (ms)
  */
-const init = (server: HttpServer, authFunc: AuthFunction, path?: string, pingInterval: number = 30_000): WebSocketServerWrapper => {
+const init = (
+  server: HttpServer,
+  authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<any>,
+  path?: string,
+  pingInterval: number = 30_000
+): WebSocketServerWrapper => {
   server.on('upgrade', async (req, socket, head) => {
     if (path && !req.url?.startsWith(path)) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
@@ -74,49 +50,50 @@ const init = (server: HttpServer, authFunc: AuthFunction, path?: string, pingInt
 
     // Successful authentication, upgrade to websocket
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const wsWrapper = ws as WebSocketWrapper;
+      const wsWrapper = ws as WebSocketClient;
 
       wsWrapper.ip = ipAddr;
       wsWrapper.user = user;
 
-      wss.emit('connection', ws, req, user);
+      wss.emit('connection', ws, req);
     });
   });
 
   wss.on('connection', ws => {
-    const wsExt = ws as WebSocketWrapper;
-    wsExt.on('pong', function() {
-      (this as WebSocketWrapper).isAlive = true;
-    });
-
+    const wsExt = ws as WebSocketClient;
     wsExt.isAlive = true;
 
     wsExt.on('message', async msg => {
       try {
         const json = JSON.parse(msg.toString());
-        if (!json.event || !json.data)
+        if (!json.event || typeof json.event !== 'string')
           throw new Error('Invalid websocket message');
 
         // Emit message event with parsed json
-        wss.emit('message', wsExt, json as WebSocketMessage);
+        wss.emit('message', json.event, json.data, wsExt);
       } catch (e) {
         logError('[WebSocketLibrary] Error parsing websocket message', e);
       }
     });
+
+    wsExt.on('close', () => {
+      wss.emit('disconnect', wsExt);
+    });
   });
 
+  // Ping clients to check if they are still connected
   setInterval(() => {
     wss.clients.forEach(ws => {
-      const clientExt = ws as WebSocketWrapper;
+      const clientExt = ws as WebSocketClient;
       if (clientExt.isAlive === false) return clientExt.terminate();
   
       clientExt.isAlive = false;
-      clientExt.ping();
+      clientExt.send(JSON.stringify({ event: 'ping' }));
     });
   }, pingInterval);
 
   return wss;
 };
 
-export { wss };
+export { wss, WebSocketServerWrapper };
 export default init;

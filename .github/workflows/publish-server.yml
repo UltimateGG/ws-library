@@ -6,6 +6,9 @@ on: workflow_dispatch
 jobs:
   publish:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
     permissions:
       contents: read
       packages: write
@@ -21,7 +24,7 @@ jobs:
           scope: '@ultimategg'
 
       - name: Install Dependencies
-        run: cd server && npm ci
+        run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GH_PRIVATE_NPM_TOKEN }}
 
@@ -30,6 +33,5 @@ jobs:
 
       - name: Publish Package
         run: npm publish
-
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

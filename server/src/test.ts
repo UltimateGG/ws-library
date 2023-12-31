@@ -16,7 +16,7 @@ enum Event {
 }
 
 wss.on('connection', (client, req) => {
-  logInfo('New connection from ' + req.socket.remoteAddress);
+  logInfo('New connection from ' + client.ip);
 });
 
 wss.subscribe<number>(Event.TEST, (message, client) => {

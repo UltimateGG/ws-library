@@ -8,8 +8,7 @@ export default class WebSocketClient extends WebSocket {
   /** Internal use for connection drop check */
   isAlive?: boolean;
 
-
-  public override send(event: string, data?: any) {
+  public send(event: string, data?: any) {
     super.send(JSON.stringify({ event, data }));
   }
 }

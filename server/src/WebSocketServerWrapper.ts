@@ -8,7 +8,7 @@ export class WebSocketServerWrapper extends WebSocketServer<typeof WebSocketClie
 
 
   constructor(options?: ServerOptions<typeof WebSocketClient>, callback?: () => void) {
-    super(options, callback);
+    super({ ...options, WebSocket: WebSocketClient }, callback);
 
     this.on('message', (event: string, data: any, client: WebSocketClient) => {
       const listeners = this.eventSubscibers.get(event);

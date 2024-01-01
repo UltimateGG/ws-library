@@ -19,8 +19,12 @@ wss.on('connection', (client, req) => {
   logInfo('New connection from ' + client.ip);
 });
 
-wss.subscribe<number>(Event.TEST, (message, client) => {
-  logInfo('TEST EVENT:', message);
+wss.subscribe<number>(Event.TEST, (message, client) => { // TODO fix with async
+  logInfo('TEST EVENT:', message.payload);
+
+  // await new Promise(resolve => setTimeout(resolve, 1000));
+
+  return '[test string]';
 });
 
 wss.on('disconnect', (client) => {

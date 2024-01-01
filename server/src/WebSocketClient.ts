@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { WebSocketMessage } from './WebSocketServerWrapper';
 
 
 export default class WebSocketClient extends WebSocket {
@@ -8,7 +9,7 @@ export default class WebSocketClient extends WebSocket {
   /** Internal use for connection drop check */
   isAlive?: boolean;
 
-  public send(event: string, data?: any) {
+  public sendEvent(event: string, data?: WebSocketMessage) {
     super.send(JSON.stringify({ event, data }));
   }
 }

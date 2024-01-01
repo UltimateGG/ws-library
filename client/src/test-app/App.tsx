@@ -1,41 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useWebsocket } from '..';
 
 
 const App = () => {
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const { websocket, setupWebsocket } = useWebsocket();
 
-  
+
   useEffect(() => {
-    if (ws) return;
-    console.log('connecting...');
-    const newWs = new WebSocket('ws://localhost:3000/');
-    setWs(newWs);
+    setupWebsocket('localhost:3000/', false);
+  }, []);
 
-    newWs.onopen = () => {
-      console.log('connected');
-      newWs.send('{"event": "test", "data": 43}');
-    };
+  const test = async () => {
+    if (!websocket) return console.log('no websocket');
+    const res = await websocket?.sendEvent('test', 25, true);
 
-    newWs.onmessage = (event) => {
-      console.log(event.data);
-      const data = JSON.parse(event.data);
-      if (data.event === 'ping') {
-        newWs.send('{"event": "pong"}');
-      }
-    };
-
-    newWs.onclose = () => {
-      console.log('disconnected');
-    };
-
-    newWs.onerror = (err) => {
-      console.error(err);
-    };
-  }, [ws]);
+    console.log(res);
+  };
 
   return (
     <div>
-      <h1>Hello Worldf</h1>    
+      <h1>Hello World</h1>    
+
+      <button onClick={() => test()}>Send Test</button>
     </div>
   );
 };

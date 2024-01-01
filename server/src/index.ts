@@ -70,7 +70,7 @@ const init = (
       if (client.isAlive === false) return client.terminate();
   
       client.isAlive = false;
-      client.send('ping');
+      client.sendEvent('ping');
     });
   }, pingInterval);
 

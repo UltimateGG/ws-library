@@ -1,4 +1,4 @@
-import { logError } from '@ultimategg/logging';
+import { logError, logInfo } from '@ultimategg/logging';
 import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
 import WebSocketClient from './WebSocketClient';
 
@@ -24,11 +24,9 @@ export class WebSocketServerWrapper extends WebSocketServer<typeof WebSocketClie
         const replyTo = data?.replyTo;
 
         try {
-          let replyMsg: any;
+          let replyMsg = listener(data, client); // Fire message event
 
-          // Fire message event
-          if (listener.constructor.name === 'AsyncFunction') replyMsg = await listener(data, client);
-          else replyMsg = listener(data, client);
+          if (replyMsg instanceof Promise) replyMsg = await replyMsg; // Await promise if it's async
 
           // If the client wants a reply and there is data to reply with, send it
           if (replyTo && replyMsg) client.sendEvent(event, { replyTo, payload: replyMsg });

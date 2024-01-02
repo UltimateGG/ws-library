@@ -83,7 +83,7 @@ export class WebSocketWrapper extends WebSocket {
         if (dataIn.replyTo !== id) return;
         if (msgTimeout) clearTimeout(msgTimeout);
         unsubscribe();
-        
+
         delete dataIn.replyTo;
         if (dataIn.error) reject(dataIn);
         else resolve(dataIn);

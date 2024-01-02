@@ -1,4 +1,3 @@
-import { logError, logInfo } from '@ultimategg/logging';
 import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
 import WebSocketClient from './WebSocketClient';
 
@@ -31,8 +30,6 @@ export class WebSocketServerWrapper extends WebSocketServer<typeof WebSocketClie
           // If the client wants a reply and there is data to reply with, send it
           if (replyTo && replyMsg) client.sendEvent(event, { replyTo, payload: replyMsg });
         } catch (e) {
-          logError(`[WebSocketLibrary] Caught error while calling event subscriber for "${event}"`, e);
-
           // If they were expecting a reply and we errored, let them know
           if (replyTo) client.sendEvent(event, { replyTo, error: true, payload: (e as any).message || 'Unknown error' });
         }

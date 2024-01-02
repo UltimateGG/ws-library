@@ -1,7 +1,8 @@
 import { logError, logWarn } from '@ultimategg/logging';
 import http from 'http';
 import https from 'https';
-import { WebSocketServerWrapper } from './WebSocketServerWrapper';
+import { WebSocketMessage, WebSocketServerWrapper } from './WebSocketServerWrapper';
+import WebSocketClient from './WebSocketClient';
 
 
 const wss: WebSocketServerWrapper = new WebSocketServerWrapper({ noServer: true });
@@ -77,5 +78,11 @@ const init = (
   return wss;
 };
 
-export { wss, WebSocketServerWrapper };
+export {
+  wss,
+  WebSocketServerWrapper,
+  WebSocketMessage,
+  WebSocketClient 
+};
+
 export default init;

@@ -157,7 +157,7 @@ interface IWebsocketContext {
 
 export const WebsocketContext = createContext<IWebsocketContext | undefined>(undefined);
 
-const WebsocketProvider = ({ children }: { children: React.ReactNode }) => {
+export const WebsocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [websocket, setWebsocket] = useState<WebSocketWrapper | null>(null);
 
 
@@ -178,5 +178,3 @@ export const useWebsocket = () => {
 
   return context;
 };
-
-export default WebsocketProvider;

@@ -79,10 +79,9 @@ const init = (
 };
 
 export {
+  init as initWebSocket,
   wss,
   WebSocketServerWrapper,
   WebSocketMessage,
   WebSocketClient 
 };
-
-export default init;

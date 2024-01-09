@@ -7,7 +7,7 @@ import terser from '@rollup/plugin-terser';
 
 
 export default {
-  input: 'src/index.tsx',
+  input: 'src/index.ts',
   output: [
     {
       file: packageJson.main,
@@ -22,14 +22,15 @@ export default {
   ],
   plugins: [
     peerDepsExternal(),
-    resolve({ browser: true }),
+    resolve(),
     commonjs(),
     typescript({
       useTsconfigDeclarationDir: true,
       tsconfigOverride: {
-        exclude: ['node_modules', './src/test-app']
+        exclude: ['node_modules', './src/test.ts']
       }
     }),
     terser()
-  ]
+  ],
+  external: ['ws']
 };

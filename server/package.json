@@ -1,8 +1,9 @@
 {
   "name": "@ultimategg/ws-server",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Websocket library for Express server side",
   "main": "./dist/index.js",
+  "module": "./dist/index.esm.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
@@ -12,23 +13,31 @@
     "url": "https://github.com/UltimateGG/ws-library.git"
   },
   "scripts": {
-    "build": "npx tsc && rm dist/test.d.ts && rm dist/test.js",
+    "build": "rollup -c",
     "dev": "nodemon src/test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
     "@types/express": "^4.17.21",
     "@types/ws": "^8.5.10",
     "express": "^4.18.2",
     "nodemon": "^3.0.2",
+    "rollup": "^2.79.1",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-typescript2": "^0.36.0",
     "terser": "^5.26.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@ultimategg/logging": "^0.0.5",
     "ws": "^8.16.0"
+  },
+  "peerDependencies": {
+    "@ultimategg/logging": "^0.0.5"
   }
 }

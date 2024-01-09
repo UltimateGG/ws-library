@@ -1,6 +1,6 @@
 {
   "name": "@ultimategg/ws-client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "vite --open",
-    "build": "rollup -c --bundleConfigAsCjs && rm -r dist/test-app",
+    "build": "rollup -c --bundleConfigAsCjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -37,6 +37,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "rollup": "^4.9.2",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
     "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"

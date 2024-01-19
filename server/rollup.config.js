@@ -27,8 +27,12 @@ export default {
     typescript({
       useTsconfigDeclarationDir: true,
       tsconfigOverride: {
-        exclude: ['node_modules', './src/test.ts']
-      }
+        exclude: ['node_modules', './src/test.ts'],
+        compilerOptions: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+        }
+      },
     }),
     terser()
   ],

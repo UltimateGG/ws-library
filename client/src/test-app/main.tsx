@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import WebsocketProvider from '..';
+import { WebsocketProvider } from '..';
 
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

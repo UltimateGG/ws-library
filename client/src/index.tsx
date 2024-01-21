@@ -2,12 +2,13 @@
 import React, { createContext, useContext, useState } from 'react';
 
 
-const DEFAULT_PING_INTERVAL = 30_000;
+const DEFAULT_PING_INTERVAL = 30_000; // TODO get from server
 
-export interface WebSocketMessage<T = any> {
+/** @template P Custom payload data type */
+export interface WebSocketMessage<P = any> {
   error?: boolean;
   replyTo?: string;
-  payload?: T;
+  payload?: P;
 }
 
 export class WebSocketWrapper extends WebSocket {
@@ -54,10 +55,11 @@ export class WebSocketWrapper extends WebSocket {
     });
   }
 
-  public subscribe<T>(event: string, callback: (data: WebSocketMessage<T>) => void) {
+  public subscribe<P = any>(event: string, callback: (data: WebSocketMessage<P>) => void) {
     this.eventSubscribers.set(event, [...(this.eventSubscribers.get(event) || []), callback]);
   
-    return () => { // Return unsubscribe function
+    // Return unsubscribe function
+    return () => {
       const listeners = this.eventSubscribers.get(event);
       if (!listeners) return;
   
@@ -151,7 +153,7 @@ const setupOnce = async (options: IWebsocketOptions, setWs: React.Dispatch<React
 // React side
 
 interface IWebsocketContext {
-  setupWebsocket: (url: string, ssl?: boolean, reconnectDelay?: number, pingInterval?: number) => void;
+  setupWebsocket: (url: string, reconnectDelay?: number, pingInterval?: number) => void;
   websocket: WebSocketWrapper | null;
 }
 
@@ -161,8 +163,8 @@ export const WebsocketProvider = ({ children }: { children: React.ReactNode }) =
   const [websocket, setWebsocket] = useState<WebSocketWrapper | null>(null);
 
 
-  const setupWebsocket = (url: string, ssl: boolean = true, reconnectDelay = 1500, pingInterval = DEFAULT_PING_INTERVAL) => {
-    setupOnce({ url: `ws${ssl ? 's' : ''}://${url}`, reconnectDelay, pingInterval }, setWebsocket);
+  const setupWebsocket = (url: string, reconnectDelay = 1500, pingInterval = DEFAULT_PING_INTERVAL) => {
+    setupOnce({ url, reconnectDelay, pingInterval }, setWebsocket);
   };
 
   return (

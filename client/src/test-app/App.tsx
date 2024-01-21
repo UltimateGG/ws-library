@@ -7,7 +7,7 @@ const App = () => {
 
 
   useEffect(() => {
-    setupWebsocket('localhost:3000/', false);
+    setupWebsocket('ws://localhost:3000/');
   }, []);
 
   const test = async () => {

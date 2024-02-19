@@ -17,7 +17,7 @@ export default class WebSocketClient<T = any, D = any> extends WebSocket {
   public isAlive?: boolean;
 
   /** Fire an event for this client */
-  public sendEvent(event: string, data?: WebSocketMessage) {
+  public sendEvent(event: string, data: WebSocketMessage = {}) {
     super.send(JSON.stringify({ event, data }));
   }
 }

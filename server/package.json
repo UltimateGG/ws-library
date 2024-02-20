@@ -1,6 +1,6 @@
 {
   "name": "@ultimategg/ws-server",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Websocket library for Express server side",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
@@ -24,7 +24,6 @@
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@types/express": "^4.17.21",
-    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
@@ -39,6 +38,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@types/ws": "^8.5.10",
     "ws": "^8.16.0"
   },
   "peerDependencies": {

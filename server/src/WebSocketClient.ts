@@ -14,6 +14,7 @@ export default class WebSocketClient<U = any> extends WebSocket {
   public isAlive: boolean;
 
   constructor(address: unknown);
+  constructor(address: string | URL, protocols?: string | string[], options?: WebSocket.ClientOptions | ClientRequestArgs);
 
   constructor(address: string | URL, protocols?: string | string[], options?: WebSocket.ClientOptions | ClientRequestArgs) {
     super(address, protocols, options);

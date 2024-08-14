@@ -1,22 +1,26 @@
 import WebSocket from 'ws';
 import { WebSocketMessage } from './WebSocketServer';
+import { ClientRequestArgs } from 'http';
 
-
-/** 
- * @template T Your user type
- * @template D Your custom data type (optional)
- * 
- * Both are null by default. If a user is connected they will not be null
+/**
+ * @template U Your user object type
  */
-export default class WebSocketClient<T = any, D = any> extends WebSocket {
-  public ip?: string;
-  public user: T = null as any;
-  public data: D = null as any;
+export default class WebSocketClient<U = any> extends WebSocket {
+  public user!: U;
+  public ip!: string;
 
   /** Internal use for connection drop check */
-  public isAlive?: boolean;
+  public isAlive: boolean;
 
-  /** Fire an event for this client */
+  constructor(address: unknown);
+
+  constructor(address: string | URL, protocols?: string | string[], options?: WebSocket.ClientOptions | ClientRequestArgs) {
+    super(address, protocols, options);
+
+    this.isAlive = true;
+  }
+
+  /** Send an event to this client */
   public sendEvent(event: string, data: WebSocketMessage = {}) {
     super.send(JSON.stringify({ event, data }));
   }

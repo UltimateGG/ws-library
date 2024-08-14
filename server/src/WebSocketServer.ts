@@ -4,11 +4,13 @@ import https from 'https';
 import WebSocketClient from './WebSocketClient';
 import { logError, logWarn } from '@ultimategg/logging';
 
-/** @template P Custom payload data type */
-export interface WebSocketMessage<P = any> {
+/** Incoming or outgoing data, payload should be unwrapped before being exposed to consumer */
+export interface WebSocketMessage {
+  event: string;
   error?: boolean;
   replyTo?: string;
-  payload?: P;
+  ack?: boolean; // If the replyTo was the response
+  payload?: unknown;
 }
 
 type InferUserType<T> = T extends typeof WebSocketClient<infer U> ? U : never;
@@ -21,7 +23,7 @@ export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUs
 }
 
 export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUserType<ClientType>> = typeof WebSocketClient> extends OriginalWebSocketServer<ClientType> {
-  private eventSubscibers: Map<string, ((data: WebSocketMessage, ws: InstanceType<ClientType>) => any)[]> = new Map();
+  private eventSubscribers: Map<string, ((data: unknown, ws: InstanceType<ClientType>, raw: WebSocketMessage) => any)[]> = new Map();
 
   /**
    * @param server Pass in your http or https server instance
@@ -73,19 +75,28 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     // On message, fire server event
     // On close, fire disconnect event
     this.on('connection', client => {
+      client._setServer(this);
+
       client.on('message', async msg => {
         try {
           const json = JSON.parse(msg.toString());
-          if (!json.event || typeof json.event !== 'string') throw new Error('Invalid websocket message');
+          if (!json?.event || typeof json.event !== 'string') throw new Error('Invalid websocket message');
 
           // Emit message event with parsed json
-          this.emit('message', json.event, json.data, client);
+          this.emit('message', json, client);
         } catch (e) {
           logError('[WebSocketLibrary] Error parsing websocket message (Invalid JSON)', e);
         }
       });
 
-      client.on('close', () => this.emit('disconnect', client));
+      client.on('close', (code, reason) => {
+        if (!client.isAlive && code === 1006) {
+          code = 3008;
+          reason = Buffer.from('Timed out');
+        }
+
+        this.emit('disconnect', client, code, reason.toString());
+      });
     });
 
     // Ping clients to check if they are still connected
@@ -99,26 +110,29 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     }, options.pingInterval || 30_000);
 
     // Listen to any client pongs and mark them as alive
-    this.subscribe('pong', (data, client) => (client.isAlive = true));
+    this.subscribe('pong', (_, client) => (client.isAlive = true));
 
     // Setup message subscriber handler
-    this.on('message', (event: string, data: WebSocketMessage, client: InstanceType<ClientType>) => {
-      const listeners = this.eventSubscibers.get(event);
+    this.on('message', (data: WebSocketMessage, client: InstanceType<ClientType>) => {
+      const listeners = [...(this.eventSubscribers.get(data.event) || []), ...(this.eventSubscribers.get('_ALL') || [])];
       if (!listeners) return;
 
       listeners.forEach(async listener => {
-        const replyTo = data?.replyTo;
+        const replyTo = data.replyTo;
+        const shouldReply = replyTo !== undefined && !data.ack;
 
         try {
-          let replyMsg = listener(data, client); // Fire message event
+          let replyMsg = listener(data.payload, client, data); // Fire message event
 
           if (replyMsg instanceof Promise) replyMsg = await replyMsg; // Await promise if it's async
 
           // If the client wants a reply and there is data to reply with, send it
-          if (replyTo && replyMsg) client.sendEvent(event, { replyTo, payload: replyMsg });
+          if (shouldReply && replyMsg) client.send(JSON.stringify({ event: data.event, replyTo, ack: true, payload: replyMsg } satisfies WebSocketMessage));
         } catch (e) {
+          logError(`[WebSocketLibrary] Caught error calling event subscriber for "${data.event}"`, e);
+
           // If they were expecting a reply and we errored, let them know
-          if (replyTo) client.sendEvent(event, { replyTo, error: true, payload: (e as any).message || 'Unknown error' });
+          if (shouldReply) client.send(JSON.stringify({ event: data.event, replyTo, error: true, ack: true, payload: (e as any).message || 'Unknown error' } satisfies WebSocketMessage));
         }
       });
     });
@@ -133,17 +147,25 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
    */
   public broadcast(event: string, payload: any, ...exclude: InstanceType<ClientType>[]) {
     this.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN && !exclude.includes(client)) client.sendEvent(event, { payload });
+      if (client.readyState === WebSocket.OPEN && !exclude.includes(client)) client.sendEvent(event, payload);
     });
   }
 
   /**
    * Listener can optionally return any data (Even promises) and a reply will be sent to the client
-   *
-   * @template P Custom payload type, note this is trusting the client to send the correct type
    */
-  public subscribe<P = any>(event: string, listener: (data: WebSocketMessage<P>, client: InstanceType<ClientType>) => any): this {
-    this.eventSubscibers.set(event, [...(this.eventSubscibers.get(event) || []), listener]);
-    return this;
+  public subscribe(event: string, listener: (data: unknown, client: InstanceType<ClientType>, raw: WebSocketMessage) => any): () => void {
+    this.eventSubscribers.set(event, [...(this.eventSubscribers.get(event) || []), listener]);
+
+    // Return unsubscribe function
+    return () => {
+      const listeners = this.eventSubscribers.get(event);
+      if (!listeners) return;
+
+      this.eventSubscribers.set(
+        event,
+        listeners.filter(l => l !== listener)
+      );
+    };
   }
 }

@@ -15,11 +15,7 @@ enum Event {
   TEST = 'test'
 }
 
-export default class CustomClient extends WebSocketClient<CustomUser> {
-  public isCool?: boolean;
-}
-
-const wss = new WebSocketServer<typeof CustomClient>(
+const wss = new WebSocketServer<typeof WebSocketClient<CustomUser>>(
   server,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async (req, ipAddr) => {
@@ -30,10 +26,6 @@ const wss = new WebSocketServer<typeof CustomClient>(
       id: Date.now(),
       name: ['John', 'Jane', 'Bob', 'Alice'][Math.floor(Math.random() * 4)]
     };
-  },
-  undefined,
-  {
-    WebSocket: CustomClient
   }
 );
 

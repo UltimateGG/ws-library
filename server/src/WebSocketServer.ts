@@ -11,14 +11,16 @@ export interface WebSocketMessage<P = any> {
   payload?: P;
 }
 
-export interface ServerOptions<ClientType extends typeof WebSocketClient<U> = typeof WebSocketClient, U = any> extends OriginalServerOptions {
+type InferUserType<T> = T extends typeof WebSocketClient<infer U> ? U : never;
+
+export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUserType<ClientType>>> extends OriginalServerOptions {
   /** pingInterval Terminate connection if no pong received in this interval (ms) */
   pingInterval?: number;
 
   WebSocket?: ClientType;
 }
 
-export class WebSocketServer<ClientType extends typeof WebSocketClient<U> = typeof WebSocketClient, U = any> extends OriginalWebSocketServer<ClientType> {
+export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUserType<ClientType>> = typeof WebSocketClient> extends OriginalWebSocketServer<ClientType> {
   private eventSubscibers: Map<string, ((data: WebSocketMessage, ws: InstanceType<ClientType>) => any)[]> = new Map();
 
   /**
@@ -26,7 +28,12 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<U> = type
    * @param authFunc Should return the user, or null if not authenticated
    * @param path Path to listen for websocket connections on Ex '/ws'
    */
-  constructor(server: http.Server | https.Server, authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<U | null>, path?: string, options: ServerOptions<ClientType> = {}) {
+  constructor(
+    server: http.Server | https.Server,
+    authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<InferUserType<ClientType> | null>,
+    path?: string,
+    options: ServerOptions<ClientType> = {}
+  ) {
     super({
       ...options,
       noServer: true, // Required for our auth function

@@ -147,6 +147,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
   }
 
   // Override event emitter to allow for custom events
+  // Yes its horrible but it works and Typescript overloads are stupid
   on(event: 'connection', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
   on(event: 'error', cb: (this: WebSocketServer<ClientType>, error: Error) => void): this;
   on(event: 'headers', cb: (this: WebSocketServer<ClientType>, headers: string[], request: http.IncomingMessage) => void): this;
@@ -156,6 +157,50 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
   on(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this;
   on(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this {
     return super.on(event as any, listener as any);
+  }
+
+  once(event: 'connection', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
+  once(event: 'error', cb: (this: WebSocketServer<ClientType>, error: Error) => void): this;
+  once(event: 'headers', cb: (this: WebSocketServer<ClientType>, headers: string[], request: http.IncomingMessage) => void): this;
+  once(event: 'close' | 'listening', cb: (this: WebSocketServer<ClientType>) => void): this;
+  once(event: 'messageRaw', cb: (this: WebSocketServer<ClientType>, data: WebSocketMessage, client: InstanceType<ClientType>) => void): this;
+  once(event: 'disconnect', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, code: number, reason: string) => void): this;
+  once(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this;
+  once(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this {
+    return super.once(event as any, listener as any);
+  }
+
+  off(event: 'connection', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
+  off(event: 'error', cb: (this: WebSocketServer<ClientType>, error: Error) => void): this;
+  off(event: 'headers', cb: (this: WebSocketServer<ClientType>, headers: string[], request: http.IncomingMessage) => void): this;
+  off(event: 'close' | 'listening', cb: (this: WebSocketServer<ClientType>) => void): this;
+  off(event: 'messageRaw', cb: (this: WebSocketServer<ClientType>, data: WebSocketMessage, client: InstanceType<ClientType>) => void): this;
+  off(event: 'disconnect', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, code: number, reason: string) => void): this;
+  off(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this;
+  off(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this {
+    return super.off(event as any, listener as any);
+  }
+
+  addListener(event: 'connection', cb: (client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
+  addListener(event: 'error', cb: (err: Error) => void): this;
+  addListener(event: 'headers', cb: (headers: string[], request: http.IncomingMessage) => void): this;
+  addListener(event: 'close' | 'listening', cb: () => void): this;
+  addListener(event: 'messageRaw', cb: (data: WebSocketMessage, client: InstanceType<ClientType>) => void): this;
+  addListener(event: 'disconnect', cb: (client: InstanceType<ClientType>, code: number, reason: string) => void): this;
+  addListener(event: string | symbol, listener: (...args: any[]) => void): this;
+  addListener(event: string | symbol, listener: (...args: any[]) => void): this {
+    return super.addListener(event as any, listener as any);
+  }
+
+  removeListener(event: 'connection', cb: (client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
+  removeListener(event: 'error', cb: (err: Error) => void): this;
+  removeListener(event: 'headers', cb: (headers: string[], request: http.IncomingMessage) => void): this;
+  removeListener(event: 'close' | 'listening', cb: () => void): this;
+  removeListener(event: 'messageRaw', cb: (data: WebSocketMessage, client: InstanceType<ClientType>) => void): this;
+  removeListener(event: 'disconnect', cb: (client: InstanceType<ClientType>, code: number, reason: string) => void): this;
+  removeListener(event: string | symbol, listener: (...args: any[]) => void): this;
+  removeListener(event: string | symbol, listener: (...args: any[]) => void): this {
+    return super.removeListener(event as any, listener as any);
   }
 
   /**

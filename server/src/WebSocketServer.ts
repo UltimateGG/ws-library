@@ -15,6 +15,7 @@ export interface WebSocketMessage {
 
 type InferUserType<T> = T extends typeof WebSocketClient<infer U> ? U : never;
 
+/** maxPayload default is 5000 bytes */
 export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUserType<ClientType>>> extends OriginalServerOptions {
   /** pingInterval Terminate connection if no pong received in this interval (ms) */
   pingInterval?: number;
@@ -36,6 +37,8 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     path?: string,
     options: ServerOptions<ClientType> = {}
   ) {
+    if (!options.maxPayload) options.maxPayload = 5000;
+
     super({
       ...options,
       noServer: true, // Required for our auth function
@@ -45,20 +48,20 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     // Authentication/connection handler
     server.on('upgrade', async (req, socket, head) => {
       if (path && !req.url?.startsWith(path)) {
-        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+        socket.write(`HTTP/${req.httpVersion} 404 Not Found\r\n\r\n`);
         return socket.destroy();
       }
 
       const ipAddr = req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString(); // TODO: On reverse proxy we might need the header first
       if (!ipAddr) {
         logWarn('[WebSocketLibrary] Could not get remote IP address from upgrade request');
-        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        socket.write(`HTTP/${req.httpVersion} 400 Bad Request\r\n\r\n`);
         return socket.destroy();
       }
 
       const user = await authFunc(req, ipAddr);
       if (!user) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.write(`HTTP/${req.httpVersion} 401 Unauthorized\r\n\r\n`);
         return socket.destroy();
       }
 
@@ -83,10 +86,15 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
           if (!json?.event || typeof json.event !== 'string') throw new Error('Invalid websocket message');
 
           // Emit message event with parsed json
-          this.emit('message', json, client);
+          this.emit('messageRaw', json, client);
         } catch (e) {
-          logError('[WebSocketLibrary] Error parsing websocket message (Invalid JSON)', e);
+          // We can just ignore it, what can they do?
+          logError('[WebSocketLibrary] Error parsing raw websocket message', e);
         }
+      });
+
+      client.on('error', e => {
+        logError('[WebSocketLibrary] Client error', e);
       });
 
       client.on('close', (code, reason) => {
@@ -113,7 +121,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     this.subscribe('pong', (_, client) => (client.isAlive = true));
 
     // Setup message subscriber handler
-    this.on('message', (data: WebSocketMessage, client: InstanceType<ClientType>) => {
+    this.on('messageRaw', (data, client) => {
       const listeners = [...(this.eventSubscribers.get(data.event) || []), ...(this.eventSubscribers.get('_ALL') || [])];
       if (!listeners) return;
 
@@ -138,6 +146,18 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     });
   }
 
+  // Override event emitter to allow for custom events
+  on(event: 'connection', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, request: http.IncomingMessage) => void): this;
+  on(event: 'error', cb: (this: WebSocketServer<ClientType>, error: Error) => void): this;
+  on(event: 'headers', cb: (this: WebSocketServer<ClientType>, headers: string[], request: http.IncomingMessage) => void): this;
+  on(event: 'close' | 'listening', cb: (this: WebSocketServer<ClientType>) => void): this;
+  on(event: 'messageRaw', cb: (this: WebSocketServer<ClientType>, data: WebSocketMessage, client: InstanceType<ClientType>) => void): this;
+  on(event: 'disconnect', cb: (this: WebSocketServer<ClientType>, client: InstanceType<ClientType>, code: number, reason: string) => void): this;
+  on(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this;
+  on(event: string | symbol, listener: (this: WebSocketServer<ClientType>, ...args: any[]) => void): this {
+    return super.on(event as any, listener as any);
+  }
+
   /**
    * Send a message to all connected clients
    *
@@ -153,6 +173,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
 
   /**
    * Listener can optionally return any data (Even promises) and a reply will be sent to the client
+   * @returns Unsubscribe function
    */
   public subscribe(event: string, listener: (data: unknown, client: InstanceType<ClientType>, raw: WebSocketMessage) => any): () => void {
     this.eventSubscribers.set(event, [...(this.eventSubscribers.get(event) || []), listener]);

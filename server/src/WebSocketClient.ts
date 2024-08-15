@@ -30,7 +30,7 @@ export default class WebSocketClient<U = any> extends WebSocket {
   public sendEvent(event: string, payload?: any, expectReply?: false): void;
 
   /** Send an event to this client */
-  public sendEvent(event: string, payload: any = {}, expectReply: boolean = false): Promise<unknown> | void {
+  public sendEvent(event: string, payload?: any, expectReply: boolean = false): Promise<unknown> | void {
     const data: WebSocketMessage = { event, payload };
 
     if (!expectReply) {

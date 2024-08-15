@@ -21,7 +21,7 @@ express middleware.
 ```typescript
 import http from 'http';
 import express from 'express';
-import { WebSocketClient, WebSocketServer } from './index';
+import { WebSocketClient, WebSocketServer } from '@ultimategg/ws-server';
 import { logError, logInfo } from '@ultimategg/logging';
 
 const app = express();

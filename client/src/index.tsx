@@ -11,15 +11,25 @@ export interface WebSocketMessage {
   payload?: unknown;
 }
 
-export class WebSocketWrapper extends WebSocket {
-  public pingInterval: number;
+export interface IWebsocketOptions {
+  /** Delay in milliseconds between reconnecting when WebSocket is closed
+   * @default 1500
+   */
+  reconnectDelay: number;
 
+  pingInterval: number;
+
+  /** Max message size in bytes
+   * @default 1MB
+   */
+  maxPayload?: number;
+}
+
+export class WebSocketWrapper extends WebSocket {
   private readonly eventSubscribers: Map<string, ((data: unknown, raw: WebSocketMessage) => any)[]> = new Map();
 
-  constructor(url: string, protocols?: string | string[], pingInterval = DEFAULT_PING_INTERVAL) {
+  constructor(url: string, maxPayload: number = 1024 * 1024, protocols?: string[] | string) {
     super(url, protocols);
-
-    this.pingInterval = pingInterval;
 
     const connectionTimeout = setTimeout(() => {
       if (this.readyState !== WebSocket.CONNECTING) return;
@@ -32,7 +42,11 @@ export class WebSocketWrapper extends WebSocket {
 
     this.addEventListener('message', msg => {
       try {
-        const data = JSON.parse(msg.data.toString());
+        let msgStr = msg.data.toString();
+        if (msgStr.length > maxPayload) return console.error('[WebSocketLibrary] Message exceeds max payload size');
+
+        const data = JSON.parse(msgStr);
+        msgStr = null;
 
         const listeners = [...(this.eventSubscribers.get(data.event) || []), ...(this.eventSubscribers.get('_ALL') || [])];
         if (!listeners) return;
@@ -65,6 +79,10 @@ export class WebSocketWrapper extends WebSocket {
     });
   }
 
+  /**
+   * Listener can optionally return any data (Even promises) and a reply will be sent to the client
+   * @returns Unsubscribe function
+   */
   public subscribe(event: string, callback: (data: unknown, raw: WebSocketMessage) => any) {
     this.eventSubscribers.set(event, [...(this.eventSubscribers.get(event) || []), callback]);
 
@@ -120,16 +138,10 @@ export class WebSocketWrapper extends WebSocket {
   }
 }
 
-export interface IWebsocketOptions {
-  url: string;
-  reconnectDelay: number;
-  pingInterval: number;
-}
-
-const connect = async (options: IWebsocketOptions, setWs: React.Dispatch<React.SetStateAction<WebSocketWrapper | null>>) => {
+const connect = async (url: string, options: IWebsocketOptions, setWs: React.Dispatch<React.SetStateAction<WebSocketWrapper | null>>) => {
   let lastPing = Date.now();
-  let pingInterval: number | null = null;
-  let ws: WebSocketWrapper | null = new WebSocketWrapper(options.url, undefined, options.pingInterval);
+  let pingTimer: number | null = null;
+  let ws: WebSocketWrapper | null = new WebSocketWrapper(url, options.maxPayload);
 
   setWs(ws);
 
@@ -142,33 +154,35 @@ const connect = async (options: IWebsocketOptions, setWs: React.Dispatch<React.S
     ws?.close();
     ws = null;
     setWs(null);
-    if (pingInterval) clearInterval(pingInterval); // Will be re-set on re-connect
+    if (pingTimer) clearInterval(pingTimer); // Will be re-set on re-connect
 
     await new Promise(resolve => setTimeout(resolve, options.reconnectDelay));
-    connect(options, setWs);
+    connect(url, options, setWs);
   });
 
-  pingInterval = setInterval(() => {
-    if (Date.now() - lastPing < options.pingInterval * 2) return;
+  pingTimer = setInterval(() => {
+    if (!ws || Date.now() - lastPing < options.pingInterval * 2) return;
 
-    ws?.onclose && ws.onclose(new CloseEvent('timeout'));
-    ws?.close();
+    ws.close(3008, 'Timed out');
   }, 300);
 };
 
 let setup = false;
 
-const setupOnce = async (options: IWebsocketOptions, setWs: React.Dispatch<React.SetStateAction<WebSocketWrapper | null>>) => {
+const setupOnce = async (url: string, options: Partial<IWebsocketOptions>, setWs: React.Dispatch<React.SetStateAction<WebSocketWrapper | null>>) => {
   if (setup) return;
 
+  if (!options.reconnectDelay) options.reconnectDelay = 1500;
+  if (!options.pingInterval) options.pingInterval = DEFAULT_PING_INTERVAL;
+
   setup = true;
-  connect(options, setWs);
+  connect(url, options as IWebsocketOptions, setWs);
 };
 
 // React side
 
 interface IWebsocketContext {
-  setupWebsocket: (url: string, reconnectDelay?: number, pingInterval?: number) => void;
+  setupWebsocket: (url: string, options?: IWebsocketOptions) => void;
   websocket: WebSocketWrapper | null;
 }
 
@@ -177,8 +191,8 @@ export const WebsocketContext = createContext<IWebsocketContext | undefined>(und
 export const WebsocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [websocket, setWebsocket] = useState<WebSocketWrapper | null>(null);
 
-  const setupWebsocket = (url: string, reconnectDelay = 1500, pingInterval = DEFAULT_PING_INTERVAL) => {
-    setupOnce({ url, reconnectDelay, pingInterval }, setWebsocket);
+  const setupWebsocket = (url: string, options: Partial<IWebsocketOptions> = {}) => {
+    setupOnce(url, options, setWebsocket);
   };
 
   return <WebsocketContext.Provider value={{ websocket, setupWebsocket }}>{children}</WebsocketContext.Provider>;

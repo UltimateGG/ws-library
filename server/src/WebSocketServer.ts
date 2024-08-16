@@ -3,6 +3,7 @@ import http from 'http';
 import https from 'https';
 import WebSocketClient from './WebSocketClient';
 import { logError, logWarn } from '@ultimategg/logging';
+import type stream from 'stream';
 
 /** Incoming or outgoing data, payload should be unwrapped before being exposed to consumer */
 export interface WebSocketMessage {
@@ -16,27 +17,25 @@ export interface WebSocketMessage {
 type InferUserType<T> = T extends typeof WebSocketClient<infer U> ? U : never;
 
 /** maxPayload default is 5000 bytes */
-export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUserType<ClientType>>> extends OriginalServerOptions {
+export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUserType<ClientType>>> extends Omit<OriginalServerOptions, 'server' | 'verifyClient'> {
   /** pingInterval Terminate connection if no pong received in this interval (ms) */
   pingInterval?: number;
+
+  /** Set to true if you need multiple WS on one server, then call onUpgrade */
+  manualUpgrade?: boolean;
 
   WebSocket?: ClientType;
 }
 
 export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUserType<ClientType>> = typeof WebSocketClient> extends OriginalWebSocketServer<ClientType> {
   private eventSubscribers: Map<string, ((data: unknown, ws: InstanceType<ClientType>, raw: WebSocketMessage) => any)[]> = new Map();
+  private upgradeHandler: (req: http.IncomingMessage, socket: stream.Duplex, head: Buffer) => void;
 
   /**
    * @param server Pass in your http or https server instance
    * @param authFunc Should return the user, or null if not authenticated
-   * @param path Path to listen for websocket connections on Ex '/ws'
    */
-  constructor(
-    server: http.Server | https.Server,
-    authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<InferUserType<ClientType> | null>,
-    path?: string,
-    options: ServerOptions<ClientType> = {}
-  ) {
+  constructor(server: http.Server | https.Server, authFunc: (req: http.IncomingMessage, ipAddress: string) => Promise<InferUserType<ClientType> | null>, options: ServerOptions<ClientType> = {}) {
     if (!options.maxPayload) options.maxPayload = 5000;
 
     super({
@@ -45,9 +44,8 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
       WebSocket: options.WebSocket || (WebSocketClient as any) // Use custom client
     });
 
-    // Authentication/connection handler
-    server.on('upgrade', async (req, socket, head) => {
-      if (path && !req.url?.startsWith(path)) {
+    this.upgradeHandler = async (req: http.IncomingMessage, socket: stream.Duplex, head: Buffer) => {
+      if (options.path && !req.url?.startsWith(options.path)) {
         socket.write(`HTTP/${req.httpVersion} 404 Not Found\r\n\r\n`);
         return socket.destroy();
       }
@@ -72,7 +70,10 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
 
         this.emit('connection', client);
       });
-    });
+    };
+
+    // Authentication/connection handler
+    if (!options.manualUpgrade) server.on('upgrade', this.upgradeHandler);
 
     // Setup client listeners:
     // On message, fire server event
@@ -144,6 +145,10 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
         }
       });
     });
+  }
+
+  public onUpgrade(req: http.IncomingMessage, socket: stream.Duplex, head: Buffer) {
+    this.upgradeHandler(req, socket, head);
   }
 
   // Override event emitter to allow for custom events

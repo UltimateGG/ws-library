@@ -27,6 +27,9 @@ const wss = new WebSocketServer<typeof WebSocketClient<CustomUser>>(
       id: Date.now(),
       name: ['John', 'Jane', 'Bob', 'Alice'][Math.floor(Math.random() * 4)]
     };
+  },
+  {
+    path: '/api/ws'
   }
 );
 

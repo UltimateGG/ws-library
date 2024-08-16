@@ -40,6 +40,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
 
     super({
       ...options,
+      path: undefined,
       noServer: true, // Required for our auth function
       WebSocket: options.WebSocket || (WebSocketClient as any) // Use custom client
     });

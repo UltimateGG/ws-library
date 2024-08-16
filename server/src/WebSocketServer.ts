@@ -57,7 +57,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
         return socket.destroy();
       }
 
-      const user = await authFunc(req, ipAddr);
+      const user = await authFunc(req, ipAddr).catch(() => null);
       if (!user) {
         socket.write(`HTTP/${req.httpVersion} 401 Unauthorized\r\n\r\n`);
         return socket.destroy();

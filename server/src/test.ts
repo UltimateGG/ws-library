@@ -27,18 +27,15 @@ const wss = new WebSocketServer<typeof WebSocketClient<CustomUser>>(
       id: Date.now(),
       name: ['John', 'Jane', 'Bob', 'Alice'][Math.floor(Math.random() * 4)]
     };
-  },
-  {
-    path: '/api/ws'
   }
 );
 
 wss.on('connection', async client => {
   logInfo('New connection from ' + client.user.name);
 
-  const r = await client.sendEvent(Event.HELLO, null, true).catch(logError);
+  const res = await client.sendEvent(Event.HELLO, null, true).catch(logError);
 
-  console.log(r);
+  console.log('Hello response was', res);
 });
 
 wss.subscribe(Event.TEST, async data => {

@@ -60,7 +60,7 @@ export class WebSocketWrapper extends WebSocket {
 
             if (replyMsg instanceof Promise) replyMsg = await replyMsg; // Await promise if it's async
 
-            // If the client wants a reply and there is data to reply with, send it
+            // If the server wants a reply and there is data to reply with, send it
             if (shouldReply && replyMsg) this.send(JSON.stringify({ event: data.event, replyTo, ack: true, payload: replyMsg } satisfies WebSocketMessage));
           } catch (e) {
             console.error(`[WebSocketLibrary] Caught error calling event subscriber for "${data.event}"`, e);

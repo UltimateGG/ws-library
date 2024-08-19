@@ -120,7 +120,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
     }, options.pingInterval || 30_000);
 
     // Listen to any client pongs and mark them as alive
-    this.subscribe('pong', (_, client) => (client.isAlive = true));
+    this.subscribe('pong', (_, client) => void (client.isAlive = true));
 
     // Setup message subscriber handler
     this.on('messageRaw', (data, client) => {
@@ -129,7 +129,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
 
       listeners.forEach(async listener => {
         const replyTo = data.replyTo;
-        const shouldReply = replyTo !== undefined && !data.ack;
+        const shouldReply = !!replyTo && !data.ack;
 
         try {
           let replyMsg = listener(data.payload, client, data); // Fire message event

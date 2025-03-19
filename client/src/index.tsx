@@ -4,10 +4,9 @@ import React, { createContext, useContext, useState } from 'react';
 const DEFAULT_PING_INTERVAL = 30_000; // TODO get from server
 
 export interface WebSocketMessage {
-  event: string;
+  event: string | '_ACK';
   error?: boolean;
   replyTo?: string;
-  ack?: boolean; // If the replyTo was the response
   payload?: unknown;
 }
 
@@ -45,15 +44,15 @@ export class WebSocketWrapper extends WebSocket {
         let msgStr = msg.data.toString();
         if (msgStr.length > maxPayload) return console.error('[WebSocketLibrary] Message exceeds max payload size');
 
-        const data = JSON.parse(msgStr);
+        const data = JSON.parse(msgStr) as WebSocketMessage;
         msgStr = null;
 
-        const listeners = [...(this.eventSubscribers.get(data.event) || []), ...(this.eventSubscribers.get('_ALL') || [])];
+        const listeners = this.eventSubscribers.get(data.event);
         if (!listeners) return;
 
         listeners.forEach(async listener => {
           const replyTo = data.replyTo;
-          const shouldReply = replyTo !== undefined && !data.ack;
+          const shouldReply = replyTo !== undefined && data.event !== '_ACK';
 
           try {
             let replyMsg = listener(data.payload, data); // Fire message event
@@ -61,12 +60,12 @@ export class WebSocketWrapper extends WebSocket {
             if (replyMsg instanceof Promise) replyMsg = await replyMsg; // Await promise if it's async
 
             // If the server wants a reply and there is data to reply with, send it
-            if (shouldReply && replyMsg) this.send(JSON.stringify({ event: data.event, replyTo, ack: true, payload: replyMsg } satisfies WebSocketMessage));
+            if (shouldReply && replyMsg) this.send(JSON.stringify({ event: '_ACK', replyTo, payload: replyMsg } satisfies WebSocketMessage));
           } catch (e) {
             console.error(`[WebSocketLibrary] Caught error calling event subscriber for "${data.event}"`, e);
 
             // If they were expecting a reply and we errored, let them know
-            if (shouldReply) this.send(JSON.stringify({ event: data.event, replyTo, ack: true, error: true, payload: (e as any).message || 'Unknown error' } satisfies WebSocketMessage));
+            if (shouldReply) this.send(JSON.stringify({ event: '_ACK', replyTo, error: true, payload: (e as any).message || 'Unknown error' } satisfies WebSocketMessage));
           }
         });
       } catch (e) {
@@ -115,7 +114,7 @@ export class WebSocketWrapper extends WebSocket {
       const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
       let msgTimeout: number | null = null;
 
-      const unsubscribe = this.subscribe('_ALL', (payload, rawMsg) => {
+      const unsubscribe = this.subscribe('_ACK', (payload, rawMsg) => {
         if (rawMsg.replyTo !== id) return;
         if (msgTimeout) clearTimeout(msgTimeout);
         unsubscribe();

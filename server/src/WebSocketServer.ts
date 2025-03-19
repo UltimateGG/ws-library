@@ -7,10 +7,9 @@ import type stream from 'stream';
 
 /** Incoming or outgoing data, payload should be unwrapped before being exposed to consumer */
 export interface WebSocketMessage {
-  event: string;
+  event: string | '_ACK';
   error?: boolean;
   replyTo?: string;
-  ack?: boolean; // If the replyTo was the response
   payload?: unknown;
 }
 
@@ -124,12 +123,12 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
 
     // Setup message subscriber handler
     this.on('messageRaw', (data, client) => {
-      const listeners = [...(this.eventSubscribers.get(data.event) || []), ...(this.eventSubscribers.get('_ALL') || [])];
+      const listeners = this.eventSubscribers.get(data.event);
       if (!listeners) return;
 
       listeners.forEach(async listener => {
         const replyTo = data.replyTo;
-        const shouldReply = !!replyTo && !data.ack;
+        const shouldReply = !!replyTo && data.event !== '_ACK';
 
         try {
           let replyMsg = listener(data.payload, client, data); // Fire message event
@@ -137,12 +136,12 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
           if (replyMsg instanceof Promise) replyMsg = await replyMsg; // Await promise if it's async
 
           // If the client wants a reply and there is data to reply with, send it
-          if (shouldReply && replyMsg) client.send(JSON.stringify({ event: data.event, replyTo, ack: true, payload: replyMsg } satisfies WebSocketMessage));
+          if (shouldReply && replyMsg) client.send(JSON.stringify({ event: '_ACK', replyTo, payload: replyMsg } satisfies WebSocketMessage));
         } catch (e) {
           logError(`[WebSocketLibrary] Caught error calling event subscriber for "${data.event}"`, e);
 
           // If they were expecting a reply and we errored, let them know
-          if (shouldReply) client.send(JSON.stringify({ event: data.event, replyTo, error: true, ack: true, payload: (e as any).message || 'Unknown error' } satisfies WebSocketMessage));
+          if (shouldReply) client.send(JSON.stringify({ event: '_ACK', replyTo, error: true, payload: (e as any).message || 'Unknown error' } satisfies WebSocketMessage));
         }
       });
     });

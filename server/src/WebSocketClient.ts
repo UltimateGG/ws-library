@@ -42,7 +42,7 @@ export default class WebSocketClient<U = any> extends WebSocket {
       const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
       let msgTimeout: NodeJS.Timeout | null = null;
 
-      const unsubscribe = this.server.subscribe('_ALL', (payload, _c, rawMsg) => {
+      const unsubscribe = this.server.subscribe('_ACK', (payload, _c, rawMsg) => {
         if (rawMsg.replyTo !== id) return;
         if (msgTimeout) clearTimeout(msgTimeout);
         unsubscribe();

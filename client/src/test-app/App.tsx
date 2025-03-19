@@ -26,7 +26,7 @@ const App = () => {
 
   const test = async () => {
     if (!websocket) return console.log('no websocket');
-    const res = await websocket?.sendEvent(Event.TEST, 25, true);
+    const res = await websocket?.sendEvent(Event.TEST, 25, true).catch(e => console.error('Error from server', e));
 
     console.log(res);
   };

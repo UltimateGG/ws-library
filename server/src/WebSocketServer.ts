@@ -23,6 +23,9 @@ export interface ServerOptions<ClientType extends typeof WebSocketClient<InferUs
   /** Set to true if you need multiple WS on one server, then call onUpgrade */
   manualUpgrade?: boolean;
 
+  /** If you are behind a proxy parse custom header to get real client ip */
+  getClientIP?: (req: http.IncomingMessage) => string | undefined;
+
   WebSocket?: ClientType;
 }
 
@@ -50,7 +53,7 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
         return socket.destroy();
       }
 
-      const ipAddr = req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString(); // TODO: On reverse proxy we might need the header first
+      const ipAddr = options.getClientIP?.(req) || req.socket.remoteAddress;
       if (!ipAddr) {
         logWarn('[WebSocketLibrary] Could not get remote IP address from upgrade request');
         socket.write(`HTTP/${req.httpVersion} 400 Bad Request\r\n\r\n`);

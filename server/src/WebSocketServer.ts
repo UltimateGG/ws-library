@@ -53,15 +53,17 @@ export class WebSocketServer<ClientType extends typeof WebSocketClient<InferUser
         return socket.destroy();
       }
 
-      let ipAddr = options.getClientIP?.(req) || req.socket.remoteAddress;
+      const clientRawIP = options.getClientIP?.(req) || req.socket.remoteAddress;
+
+      // Normalize, fix ipv6 mapping
+      const ipAddr = clientRawIP?.startsWith('::ffff:') ? clientRawIP.replace('::ffff:', '') : clientRawIP;
+
       if (!ipAddr) {
         logWarn('[WebSocketLibrary] Could not get remote IP address from upgrade request');
         socket.write(`HTTP/${req.httpVersion} 400 Bad Request\r\n\r\n`);
-        return socket.destroy();
+        socket.destroy();
+        return;
       }
-
-      // Normalize, fix ipv6 mapping
-      ipAddr = ipAddr.startsWith('::ffff:') ? ipAddr.replace('::ffff:', '') : ipAddr;
 
       const user = await authFunc(req, ipAddr).catch(() => null);
       if (!user) {
